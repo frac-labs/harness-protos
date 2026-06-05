@@ -1,0 +1,16 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+      - run: buf lint
+      - name: buf breaking (skip on main)
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against 'https://github.com/frac-labs/harness-protos.git#branch=main'
