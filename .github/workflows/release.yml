@@ -21,7 +21,7 @@ jobs:
       - name: buf generate
         run: buf generate
 
-      - name: Publish Go module release branch
+      - name: Publish Go module release branch + retag
         env:
           GIT_AUTHOR_NAME: frac-labs-writer[bot]
           GIT_AUTHOR_EMAIL: frac-labs-writer[bot]@users.noreply.github.com
@@ -32,10 +32,15 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           BRANCH="release/go/${TAG}"
           git checkout -B "${BRANCH}"
-          # Force-add the generated Go files even if .gitignore would exclude them.
-          git add -f gen/go || true
+          # Force-add generated Go (gen/ is gitignored on main but must ship on release branch).
+          git add -f gen/go go.mod || true
           git commit -m "release(go): ${TAG}" || echo "nothing to commit"
           git push -f origin "${BRANCH}"
+          # Re-point the tag at the release-branch HEAD so `go get MOD@TAG`
+          # resolves to a tree that actually contains gen/go + go.mod.
+          NEW_SHA="$(git rev-parse HEAD)"
+          git tag -f "${TAG}" "${NEW_SHA}"
+          git push -f origin "refs/tags/${TAG}"
 
       - uses: actions/setup-node@v4
         with:
@@ -53,7 +58,8 @@ jobs:
             "name": "@frac-labs/harness-protos",
             "version": "${TAG}",
             "type": "module",
-            "publishConfig": { "registry": "https://npm.pkg.github.com" }
+            "publishConfig": { "registry": "https://npm.pkg.github.com" },
+            "repository": { "type": "git", "url": "https://github.com/frac-labs/harness-protos.git" }
           }
           EOF
 
