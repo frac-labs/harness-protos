@@ -10,3 +10,7 @@ plugins:
       - esModuleInterop=true
       - outputServices=grpc-js
       - useOptionals=messages
+  - remote: buf.build/protocolbuffers/python
+    out: gen/python
+  - remote: buf.build/grpc/python
+    out: gen/python
