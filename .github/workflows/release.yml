@@ -1,0 +1,64 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: bufbuild/buf-setup-action@v1
+
+      - name: buf generate
+        run: buf generate
+
+      - name: Publish Go module release branch
+        env:
+          GIT_AUTHOR_NAME: frac-labs-writer[bot]
+          GIT_AUTHOR_EMAIL: frac-labs-writer[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: frac-labs-writer[bot]
+          GIT_COMMITTER_EMAIL: frac-labs-writer[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          BRANCH="release/go/${TAG}"
+          git checkout -B "${BRANCH}"
+          # Force-add the generated Go files even if .gitignore would exclude them.
+          git add -f gen/go || true
+          git commit -m "release(go): ${TAG}" || echo "nothing to commit"
+          git push -f origin "${BRANCH}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@frac-labs'
+
+      - name: Prepare TS package
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          mkdir -p gen/ts
+          cat > gen/ts/package.json <<EOF
+          {
+            "name": "@frac-labs/harness-protos",
+            "version": "${TAG}",
+            "type": "module",
+            "publishConfig": { "registry": "https://npm.pkg.github.com" }
+          }
+          EOF
+
+      - name: npm publish
+        working-directory: gen/ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish || echo "publish skipped (already exists?)"

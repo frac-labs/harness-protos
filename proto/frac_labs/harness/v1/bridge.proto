@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package frac_labs.harness.v1;
+
+option go_package = "github.com/frac-labs/harness-protos/gen/go/frac_labs/harness/v1;harnessv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Ticket = a unit of work one harness hands to another (or the router).
+message Ticket {
+  string id = 1;                       // ULID, set by caller
+  string kind = 2;                     // e.g. "github.issue_comment", "chat.message", "cron"
+  string source_harness = 3;           // "frac" | "fractury" | "router"
+  string target_harness = 4;           // "frac" | "fractury" | "*" for fanout
+  bytes payload = 5;                   // opaque JSON or protobuf, kind-specific
+  map<string, string> attrs = 6;       // routing hints, correlation ids, trace ids
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message EnqueueTicketRequest {
+  Ticket ticket = 1;
+}
+
+message EnqueueTicketResponse {
+  string ticket_id = 1;
+}
+
+message Event {
+  string id = 1;
+  string kind = 2;
+  string source_harness = 3;
+  bytes payload = 4;
+  map<string, string> attrs = 5;
+  google.protobuf.Timestamp emitted_at = 6;
+}
+
+message EmitEventRequest {
+  Event event = 1;
+}
+
+message EmitEventResponse {}
+
+service Bridge {
+  rpc EnqueueTicket(EnqueueTicketRequest) returns (EnqueueTicketResponse);
+  rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+}
