@@ -21,6 +21,13 @@ jobs:
       - name: buf generate
         run: buf generate
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: go mod tidy (fills transitive deps for gen/go gRPC code)
+        run: go mod tidy
+
       - name: Publish Go module release branch
         env:
           GIT_AUTHOR_NAME: frac-labs-writer[bot]
@@ -32,8 +39,9 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           BRANCH="release/go/${TAG}"
           git checkout -B "${BRANCH}"
-          # Force-add the generated Go files even if .gitignore would exclude them.
-          git add -f gen/go || true
+          # Force-add the generated Go files (and updated go.mod/go.sum from
+          # `go mod tidy` above) even if .gitignore would exclude them.
+          git add -f gen/go go.mod go.sum || true
           git commit -m "release(go): ${TAG}" || echo "nothing to commit"
           git push -f origin "${BRANCH}"
 
