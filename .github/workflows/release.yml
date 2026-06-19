@@ -89,11 +89,14 @@ jobs:
           git checkout -B "${BRANCH}" "${GITHUB_SHA}"
           buf generate
 
-          mkdir -p gen/python/harness_protos
-          touch gen/python/harness_protos/__init__.py
-          # buf.build/grpc/python emits *_pb2_grpc.py that imports its sibling *_pb2.py
-          # by bare name — move both under the package together so the import stays valid.
-          find gen/python -maxdepth 2 -name '*_pb2*.py' -exec mv {} gen/python/harness_protos/ \;
+          # buf.build/grpc/python emits modules at gen/python/frac_labs/harness/v1/*.py.
+          # The *_pb2_grpc.py files import their sibling *_pb2.py via the full
+          # package path (`from frac_labs.harness.v1 import secrets_pb2 ...`), so we
+          # ship the package as `frac_labs` directly — no rename needed. Drop in
+          # __init__.py files so setuptools.find treats them as packages.
+          touch gen/python/frac_labs/__init__.py \
+                gen/python/frac_labs/harness/__init__.py \
+                gen/python/frac_labs/harness/v1/__init__.py
 
           cat > gen/python/pyproject.toml <<EOF
           [project]
@@ -108,7 +111,7 @@ jobs:
 
           [tool.setuptools.packages.find]
           where = ["."]
-          include = ["harness_protos*"]
+          include = ["frac_labs*"]
           EOF
 
           git add -f gen/python
